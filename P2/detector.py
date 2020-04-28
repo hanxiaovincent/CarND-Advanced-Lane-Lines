@@ -2,8 +2,14 @@ import numpy as np
 import cv2
 
 class LaneDetector:
-
+    '''
+    Our lane detection class
+    '''
     def __init__(self, image, camMatrix, distCoeffi):
+        '''
+        Default constructor.
+        Defination of parameters.
+        '''
         self.imageSize = image.shape[0:2]
         self.roi = np.int32([
             [self.imageSize[1] * 0.47, self.imageSize[0] * 0.63], 
@@ -11,12 +17,12 @@ class LaneDetector:
             [self.imageSize[1] - self.imageSize[1] * 0.12, self.imageSize[0]],
             [self.imageSize[1] * 0.18, self.imageSize[0]]])
         self.warpOffset = 300
-
+        # perspective transformation computation function
         self.computeWarpTransform()
-
+        # calibration data
         self.camMatrix = camMatrix
         self.distCoeffi = distCoeffi
-
+        # thresholding parameters
         self.bThreshold = [150, 255]
         self.lowerWhite = np.array([185, 185, 185])
         self.upperWhite = np.array([255, 255, 255])
@@ -35,7 +41,7 @@ class LaneDetector:
 
         self.ym_per_pix = 35/600 # meters per pixel in y dimension
         self.xm_per_pix = 3.7/600 # meters per pixel in x dimension
-
+        # state
         self.state = 'sliding window'
 
     def computeWarpTransform(self):
@@ -51,11 +57,18 @@ class LaneDetector:
         self.MInverse = np.linalg.inv(self.M)
 
     def warpImage(self, image, M):
+        '''
+        Warp image with perspective transformation
+        '''
         img_size = (image.shape[1], image.shape[0])
         imageWarped = cv2.warpPerspective(image, M, img_size)
         return imageWarped
 
     def preProcess(self, image):
+        '''
+        Image preprocessing before lane detection.
+        Steps including distortion correction, thresholding, perspective transform
+        '''
         # correct image
         corrected = cv2.undistort(image, self.camMatrix, self.distCoeffi, None, None)
         # compute LAB threshold mask
@@ -76,7 +89,9 @@ class LaneDetector:
         return warped
 
     def fit_poly(self, leftx, lefty, rightx, righty):
-        ### TO-DO: Fit a second order polynomial to each using `np.polyfit` ###
+        '''
+        Fit a second order polynomial to each using `np.polyfit`.
+        '''
         if len(lefty) == 0 or len(leftx) == 0 or len(righty) == 0 or len(rightx) == 0:
             left_fit = [1, 1, 0]
             right_fit = [1, 1, 0]
@@ -87,6 +102,9 @@ class LaneDetector:
         return left_fit, right_fit
 
     def find_lane_pixels(self, binary_warped):
+        '''
+        Scliding window fine lane.
+        '''
         # Take a histogram of the bottom half of the image
         histogram = np.sum(binary_warped[binary_warped.shape[0]//2:,:], axis=0)
         # Create an output image to draw on and visualize the result
@@ -160,9 +178,14 @@ class LaneDetector:
         rightx = nonzerox[right_lane_inds]
         righty = nonzeroy[right_lane_inds]
 
+        # the out put image is for debugging purpose only. Final lane is draw
+        # from fitted lane.
         return leftx, lefty, rightx, righty, out_img
 
     def find_lane_init(self, binary_warped):
+        '''
+        Scliding window fine lane.
+        '''
         # Find our lane pixels first
         leftx, lefty, rightx, righty, out_img = self.find_lane_pixels(binary_warped)
 
@@ -173,7 +196,9 @@ class LaneDetector:
         dist = self.leftRightDist(binary_warped, left_fit, right_fit)
         
         valid = True
-        if numLeft < self.lanePixelRange[0] or numLeft > self.lanePixelRange[1] or numRight < self.lanePixelRange[0] or numRight > self.lanePixelRange[1] or dist < self.laneDistRange[0] or dist > self.laneDistRange[1]:
+        if numLeft < self.lanePixelRange[0] or numLeft > self.lanePixelRange[1] or \
+           numRight < self.lanePixelRange[0] or numRight > self.lanePixelRange[1] or \
+           dist < self.laneDistRange[0] or dist > self.laneDistRange[1]:
             left_fit = self.leftFits[np.argmax(self.leftNumPix)]
             right_fit = self.rightFits[np.argmax(self.rightNumPix)]
             valid = False
@@ -207,9 +232,14 @@ class LaneDetector:
         cv2.putText(out_img, text, bottomLeftCornerOfText, font, fontScale, fontColor, lineType)
         ## End visualization steps ##
 
+        # The out put image is for debugging purpose only. Final lane is draw
+        # from fitted lane.
         return valid, left_fit, right_fit, numLeft, numRight, dist, out_img
 
     def search_around_poly(self, binary_warped, left_fit, right_fit):
+        '''
+        Search lane around the polynominal.
+        '''
         # HYPERPARAMETER
         # Choose the width of the margin around the previous polynomial to search
         # The quiz grader expects 100 here, but feel free to tune on your own!
@@ -245,7 +275,9 @@ class LaneDetector:
         dist = self.leftRightDist(binary_warped, left_fit, right_fit)
 
         valid = True
-        if numLeft < self.lanePixelRange[0] or numLeft > self.lanePixelRange[1] or numRight < self.lanePixelRange[0] or numRight > self.lanePixelRange[1] or dist < self.laneDistRange[0] or dist > self.laneDistRange[1]:
+        if numLeft < self.lanePixelRange[0] or numLeft > self.lanePixelRange[1] or \
+           numRight < self.lanePixelRange[0] or numRight > self.lanePixelRange[1] or \
+           dist < self.laneDistRange[0] or dist > self.laneDistRange[1]:
             left_fit = self.leftFits[np.argmax(self.leftNumPix)]
             right_fit = self.rightFits[np.argmax(self.rightNumPix)]
             valid = False
@@ -288,9 +320,14 @@ class LaneDetector:
         out_img = cv2.addWeighted(bw, 1, out_img, 1, 0)
         ## End visualization steps ##
 
+        # The out put image is for debugging purpose only. Final lane is draw
+        # from fitted lane.
         return valid, left_fit, right_fit, numLeft, numRight, dist, out_img
 
     def leftRightDist(self, image, left_fit, right_fit):
+        '''
+        Compute the average distance between two lanes.
+        '''
         ploty = np.linspace(0, image.shape[0]-1, image.shape[0] )
 
         left_fitx = left_fit[0]*ploty**2 + left_fit[1]*ploty + left_fit[2]
@@ -299,6 +336,9 @@ class LaneDetector:
         return sum(right_fitx - left_fitx) / len(ploty)
 
     def measureCurAndPos(self, image, left_fit, right_fit):
+        '''
+        Estimate curvature and position of the car.
+        '''
         y_eval = image.shape[0] - 1
 
         # convert into real world coordinate
@@ -322,13 +362,17 @@ class LaneDetector:
         return left_curverad, right_curverad, position
 
     def processImage(self, image):
+        '''
+        Perform the main pipeline and return result image.
+        '''
         # process image detect lane
         preProcessed = self.preProcess(image)
 
         current_state = self.state
 
         if current_state == 'sliding window':
-            valid, left_fit, right_fit, left_num, right_num, dist, laneImage = self.find_lane_init(preProcessed)
+            valid, left_fit, right_fit, left_num, right_num, dist, laneImage = \
+                self.find_lane_init(preProcessed)
 
             if valid:
                 self.leftFits.append(left_fit)
@@ -341,7 +385,8 @@ class LaneDetector:
             left_fit = self.leftFits[-1]
             right_fit = self.rightFits[-1]
 
-            valid, left_fit, right_fit, left_num, right_num, dist, laneImage = self.search_around_poly(preProcessed, left_fit, right_fit)
+            valid, left_fit, right_fit, left_num, right_num, dist, laneImage = \
+                self.search_around_poly(preProcessed, left_fit, right_fit)
 
             if not valid:
                 self.state = 'sliding window'
@@ -357,7 +402,8 @@ class LaneDetector:
             self.leftNumPix.pop(0)
             self.rightNumPix.pop(0)
 
-        left_curverad, right_curverad, position = self.measureCurAndPos(preProcessed, left_fit, right_fit)
+        left_curverad, right_curverad, position = \
+            self.measureCurAndPos(preProcessed, left_fit, right_fit)
 
         ## final visualization
         start = int(preProcessed.shape[0] * 0.2)

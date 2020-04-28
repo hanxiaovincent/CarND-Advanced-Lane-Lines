@@ -4,15 +4,6 @@ import cv2
 def calibrate(images, patternSize, objectPoints):
 	"""
 	Calibrate the camera using checkerboard calibration.
-
-	Parameters:
-	images: Input images.
-	patternSize: The size of checkerboard pattern.
-	objectPoints: The object points in a 3D real world coordinate.
-
-	Returns:
-	cameraMatrix: Camera matrix.
-	distCoeffs: Distortion correction coefficient.
 	"""
 	# extract corners
 	objPoints = []
@@ -36,15 +27,7 @@ def calibrate(images, patternSize, objectPoints):
 
 def undistort(image, cameraMatrix, distCoeffs):
 	"""
-	Undistort image.
-
-	Parameters:
-	image: Input image.
-	cameraMatrix: Cam matrix.
-	distCoeffs: Distortion coefficients.
-
-	Returns:
-	Undistorted image.
+	Undistort image with camera matrix and distorion coefficients.
 	"""
 	return cv2.undistort(image, cameraMatrix, distCoeffs, None, None)
 	
